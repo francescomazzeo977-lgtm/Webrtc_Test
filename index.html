@@ -56,7 +56,7 @@
 
   <div id="sipUriContainer">
     <label for="sipUri">SIP URI:
-      <input id="sipUri" type="text" value="sip:7778@sbc.capcenter.it" />
+      <input id="sipUri" type="text" value="sip:7778@sbc..it" />
     </label>
   </div>
 
@@ -138,13 +138,13 @@ function createUA(callerNumber){
   if(ua){ ua.stop(); ua=null; }
 
   ua = new JsSIP.UA({
-    sockets: [ new JsSIP.WebSocketInterface('wss://sbc.cappcenter.it:444') ],
+    sockets: [ new JsSIP.WebSocketInterface('wss://sbc..it:444') ],
     uri: sipUri,
     authorization_user: callerNumber,
     password: '7778',
     session_timers: false,
     register: false,
-    contact_uri: `sip:${callerNumber}@sbc.cappcenter.it`,
+    contact_uri: `sip:${callerNumber}@sbc..it`,
     pcConfig: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
   });
 
