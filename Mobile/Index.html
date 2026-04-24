@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
+<title>Softphone WebRTC con Registrazione Dinamica</title>
+<script src="https://cdn.jsdelivr.net/npm/jssip@3/dist/jssip.min.js"></script>
+<style>
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color:#f0f2f5;
+  color:#2f2f33;
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  justify-content:flex-start;
+  min-height:100vh;
+  min-height:100dvh;
+  padding:12px;
+  box-sizing:border-box;
+  overflow-x:hidden;
+}
+
+h2 {
+  font-weight:700;
+  font-size:22px;
+  margin:0 0 12px 0;
+  color:#003366;
+  text-align:center;
+}
+
+.container {
+  background:white;
+  padding:16px;
+  border-radius:10px;
+  box-shadow:0 6px 20px rgba(0,51,102,0.15);
+  width:100%;
+  max-width:none;
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  box-sizing:border-box;
+}
+
+label {
+  font-weight:600;
+  font-size:15px;
+  color:#4a4a4a;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+label input {
+  padding:12px;
+  font-size:16px;
+  border-radius:6px;
+  border:1.5px solid #cfd8dc;
+  transition:border-color .2s;
+  outline-offset:2px;
+  width:100%;
+  box-sizing:border-box;
+}
+
+label input:focus {
+  border-color:#005a9c;
+  outline:none;
+  box-shadow:0 0 6px 1px #0078d4aa;
+}
+
+.button-group {
+  display:flex;
+  gap:10px;
+  width:100%;
+  flex-wrap:wrap;
+}
+
+.button-group button {
+  flex:1 1 calc(50% - 10px);
+  min-height:48px;
+  padding:14px 0;
+  font-size:16px;
+  border-radius:6px;
+  border:none;
+  cursor:pointer;
+  font-weight:700;
+  color:white;
+  background:#005a9c;
+  transition:background .3s;
+  user-select:none;
+}
+
+.button-group button:hover:not(:disabled){
+  background:#003d66;
+}
+
+.button-group button:disabled{
+  background:#b0bec5;
+  cursor:not-allowed;
+  color:#e0e0e0;
+}
+
+#registerBtn {
+  flex:0 0 auto;
+  min-height:48px;
+  padding:0 16px;
+  font-size:16px;
+  border-radius:6px;
+  border:none;
+  cursor:pointer;
+  font-weight:700;
+  color:white;
+  background:#005a9c;
+  transition:background .3s;
+  user-select:none;
+  white-space:nowrap;
+}
+
+#registerBtn:hover:not(:disabled){
+  background:#003d66;
+}
+
+#registerBtn:disabled{
+  background:#b0bec5;
+  cursor:not-allowed;
+  color:#e0e0e0;
+}
+
+#dtmfPad {
+  margin-top:8px;
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:10px;
+}
+
+#dtmfPad button {
+  background:#e3f2fd;
+  border:2px solid #90caf9;
+  border-radius:7px;
+  font-size:22px;
+  font-weight:700;
+  color:#0d47a1;
+  min-height:64px;
+  cursor:pointer;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  user-select:none;
+  transition:background .3s,color .3s;
+}
+
+#dtmfPad button:hover:not(:disabled){
+  background:#0d47a1;
+  color:white;
+}
+
+#remoteAudio {
+  display:none;
+}
+
+#status {
+  margin-top:8px;
+  font-size:14px;
+  color:#666970;
+  min-height:20px;
+  text-align:center;
+  font-style:italic;
+}
+
+#sipUriContainer {
+  display:none;
+}
+
+#incomingControls {
+  display:none;
+  margin-top:4px;
+  gap:10px;
+}
+
+.inline-group {
+  display:flex;
+  gap:10px;
+  align-items:flex-end;
+}
+
+.inline-group label {
+  flex:1;
+}
+
+#stationStatus {
+  display:flex;
+  align-items:center;
+  font-size:14px;
+  color:#666970;
+  margin-bottom:2px;
+}
+
+@media (max-width: 480px) {
+  body {
+    padding:10px;
+  }
+
+  h2 {
+    font-size:20px;
+  }
+
+  .container {
+    padding:14px;
+    border-radius:8px;
+  }
+
+  .inline-group {
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  #registerBtn {
+    width:100%;
+  }
+
+  .button-group button {
+    flex:1 1 calc(50% - 10px);
+  }
+}
+</style>
+</head>
+<body>
+<h2>Softphone WebRTC con Registrazione Dinamica</h2>
+<div class="container">
+<div class="inline-group">
+<label for="callerId">Numero Chiamante (From):
+<input id="callerId" type="text" value="7778" />
+</label>
+<button id="registerBtn">Register</button>
+</div>
+<div id="stationStatus">
+<span id="stationDot" style="display:inline-block;width:12px;height:12px;border-radius:50%;background:red;margin-right:6px;"></span>
+<span id="stationText">Station non registrata</span>
+</div>
+<label for="targetUri">Numero da Chiamare (To):
+<input id="targetUri" type="text" value="+390225568156" />
+</label>
+<div id="sipUriContainer">
+<label for="sipUri">SIP URI:
+<input id="sipUri" type="text" value="sip:7778@sbc.cappcenter.it" />
+</label>
+</div>
+<div class="button-group">
+<button id="callBtn">Chiama</button>
+<button id="holdBtn" disabled>Attesa</button>
+<button id="hangupBtn" disabled>Termina</button>
+<button id="recordBtn">REC</button>
+</div>
+<div id="incomingControls" class="button-group">
+<button id="answerBtn">Rispondi</button>
+<button id="rejectBtn">Rifiuta</button>
+</div>
+<div id="dtmfPad">
+<button data-tone="1">1</button><button data-tone="2">2</button><button data-tone="3">3</button>
+<button data-tone="4">4</button><button data-tone="5">5</button><button data-tone="6">6</button>
+<button data-tone="7">7</button><button data-tone="8">8</button><button data-tone="9">9</button>
+<button data-tone="*">*</button><button data-tone="0">0</button><button data-tone="#">#</button>
+</div>
+<div id="status"></div>
+</div>
+<audio id="remoteAudio" autoplay></audio>
+<audio id="ringtone" loop src="https://actions.google.com/sounds/v1/alarms/spaceship_alarm.ogg"></audio>
+<script>
+let ua = null;
+let currentSession = null;
+let isOnHold = false;
+let localStream = null;
+let mediaRecorder = null;
+let recordedChunks = [];
+let recording = false;
+const registerBtn = document.getElementById('registerBtn');
+const callBtn = document.getElementById('callBtn');
+const hangupBtn = document.getElementById('hangupBtn');
+const holdBtn = document.getElementById('holdBtn');
+const answerBtn = document.getElementById('answerBtn');
+const rejectBtn = document.getElementById('rejectBtn');
+const recordBtn = document.getElementById('recordBtn');
+const incomingControls = document.getElementById('incomingControls');
+const dtmfPad = document.getElementById('dtmfPad');
+const statusDiv = document.getElementById('status');
+const remoteAudio = document.getElementById('remoteAudio');
+const ringtone = document.getElementById('ringtone');
+const stationDot = document.getElementById('stationDot');
+const stationText = document.getElementById('stationText');
+function setStatus(txt){ statusDiv.textContent = txt; }
+function enableDTMF(enabled){ dtmfPad.querySelectorAll('button').forEach(b=>b.disabled = !enabled); }
+function updateHoldButton(){ holdBtn.textContent = isOnHold ? 'Riprendi' : 'Attesa'; }
+function updateStationStatus(registered){
+if(registered){
+stationDot.style.background='green';
+stationText.textContent='Station registrata';
+} else {
+stationDot.style.background='red';
+stationText.textContent='Station non registrata';
+}
+}
+function updateRegisterButton() {
+registerBtn.disabled = currentSession !== null;
+}
+function createUA(callerNumber){
+const sipUriInput = document.getElementById('sipUri').value;
+const sipUri = sipUriInput.replace(/^[^@]+/, callerNumber);
+if(ua){ ua.stop(); ua=null; }
+ua = new JsSIP.UA({
+sockets: [ new JsSIP.WebSocketInterface('wss://sbc.cappcenter.it:444') ],
+uri: sipUri,
+authorization_user: callerNumber,
+password: '7778',
+session_timers: false,
+register: false,
+contact_uri: `sip:${callerNumber}@sbc.cappcenter.it`,
+pcConfig: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+});
+ua.on('connected', ()=>console.log('WS connesso'));
+ua.on('disconnected', ()=>console.log('WS disconnesso'));
+ua.on('registered', ()=>updateStationStatus(true));
+ua.on('unregistered', ()=>updateStationStatus(false));
+ua.on('registrationFailed', e=>{ console.error('Registration failed',e); updateStationStatus(false); });
+ua.on('newRTCSession', (e)=>{
+const session = e.session;
+if(e.originator==='remote'){
+currentSession = session;
+updateRegisterButton();
+setStatus('Chiamata in arrivo da: '+(session.remote_identity?.uri?.user||session.remote_identity?.uri));
+incomingControls.style.display='flex';
+ringtone.play();
+session.on('ended', ()=>{ resetCall(); stopRecording(); ringtone.pause(); ringtone.currentTime=0; });
+session.on('failed', ()=>{ resetCall(); stopRecording(); ringtone.pause(); ringtone.currentTime=0; });
+session.connection.ontrack = (ev)=>{ remoteAudio.srcObject = ev.streams[0]; };
+return;
+}
+attachSessionHandlers(session);
+});
+ua.start();
+}
+function doRegister(caller){
+if(!ua) return;
+ua.register({ expires: 120 });
+updateStationStatus(true);
+}
+function attachSessionHandlers(session){
+currentSession = session;
+updateRegisterButton();
+callBtn.disabled=true; hangupBtn.disabled=false; holdBtn.disabled=false;
+incomingControls.style.display='none';
+setStatus('Chiamata in corso...'); enableDTMF(false);
+isOnHold=false; updateHoldButton();
+session.on('accepted', ()=>{ setStatus('Chiamata accettata'); enableDTMF(true); });
+session.on('hold', ()=>{ isOnHold=true; updateHoldButton(); setStatus('Chiamata in attesa (remoto)'); });
+session.on('unhold', ()=>{ isOnHold=false; updateHoldButton(); setStatus('Chiamata ripresa (remoto)'); });
+session.on('ended', ()=>{ resetCall(); stopRecording(); });
+session.on('failed', ()=>{ resetCall(); stopRecording(); });
+session.connection.ontrack = (ev)=>{ remoteAudio.srcObject = ev.streams[0]; };
+}
+function resetCall(){
+try{ if(currentSession) currentSession.terminate(); } catch(e){}
+currentSession=null; isOnHold=false;
+updateRegisterButton();
+callBtn.disabled=false; hangupBtn.disabled=true; holdBtn.disabled=true;
+incomingControls.style.display='none';
+enableDTMF(false); updateHoldButton(); setStatus('Pronto');
+stopRecording();
+}
+window.onload=function(){
+navigator.mediaDevices.getUserMedia({ audio:true })
+.then(stream=>{ localStream=stream; setStatus('Pronto'); })
+.catch(err=>alert('Errore microfono: '+err.message));
+};
+registerBtn.addEventListener('click', ()=>{
+if(currentSession) return;
+const caller = document.getElementById('callerId').value.trim();
+if(!caller){ alert('Inserisci un numero per registrarti'); return; }
+createUA(caller);
+doRegister(caller);
+});
+callBtn.addEventListener('click', ()=>{
+if(!localStream||!ua) return;
+const target = document.getElementById('targetUri').value.trim();
+const session = ua.call(target,{ mediaStream: localStream, dtmfMode:'rtp' });
+attachSessionHandlers(session);
+});
+hangupBtn.addEventListener('click', ()=>{
+if(currentSession) currentSession.terminate();
+resetCall();
+});
+answerBtn.addEventListener('click', ()=>{
+if(!currentSession) return;
+currentSession.answer({ mediaStream: localStream, dtmfMode:'rtp' });
+attachSessionHandlers(currentSession);
+ringtone.pause(); ringtone.currentTime=0;
+});
+rejectBtn.addEventListener('click', ()=>{
+if(currentSession) currentSession.terminate();
+resetCall();
+ringtone.pause(); ringtone.currentTime=0;
+});
+holdBtn.addEventListener('click', ()=>{
+if(!currentSession||!localStream) return;
+if(isOnHold){
+localStream.getAudioTracks().forEach(t=>t.enabled=true);
+isOnHold=false;
+setStatus('Chiamata ripresa (mute locale)');
+}else{
+localStream.getAudioTracks().forEach(t=>t.enabled=false);
+isOnHold=true;
+setStatus('Chiamata in attesa (mute locale)');
+}
+updateHoldButton();
+});
+const dtmfFrequencies={'1':[697,1209],'2':[697,1336],'3':[697,1477],'4':[770,1209],'5':[770,1336],'6':[770,1477],'7':[852,1209],'8':[852,1336],'9':[852,1477],'*':[941,1209],'0':[941,1336],'#':[941,1477]};
+dtmfPad.addEventListener('click', e=>{
+if(e.target.tagName!=='BUTTON') return;
+const tone=e.target.getAttribute('data-tone');
+if(currentSession) currentSession.sendDTMF(tone,{duration:160,interToneGap:120,transportType:'RFC2833'});
+const [f1,f2]=dtmfFrequencies[tone];
+const ctx=new (window.AudioContext||window.webkitAudioContext)();
+const o1=ctx.createOscillator(), o2=ctx.createOscillator(), g=ctx.createGain();
+o1.frequency.value=f1; o2.frequency.value=f2; g.gain.value=0.2;
+o1.connect(g); o2.connect(g); g.connect(ctx.destination);
+o1.start(); o2.start();
+setTimeout(()=>{ o1.stop(); o2.stop(); ctx.close(); },150);
+});
+function startRecording() {
+if (!localStream || !remoteAudio.srcObject) { alert('Audio non pronto'); return; }
+const audioCtx = new AudioContext();
+const dest = audioCtx.createMediaStreamDestination();
+const localSource = audioCtx.createMediaStreamSource(localStream);
+localSource.connect(dest);
+const remoteSource = audioCtx.createMediaStreamSource(remoteAudio.srcObject);
+remoteSource.connect(dest);
+recordedChunks = [];
+mediaRecorder = new MediaRecorder(dest.stream);
+mediaRecorder.ondataavailable = e => { if(e.data.size>0) recordedChunks.push(e.data); };
+mediaRecorder.onstop = saveRecording;
+mediaRecorder.start();
+recording = true;
+recordBtn.textContent = 'Stop Recording';
+setStatus('Registrazione in corso...');
+}
+function stopRecording() {
+if(mediaRecorder && mediaRecorder.state==='recording'){
+mediaRecorder.stop();
+}
+recording = false;
+recordBtn.textContent = 'REC';
+}
+function saveRecording() {
+const blob = new Blob(recordedChunks, { type: 'audio/wav' });
+const url = URL.createObjectURL(blob);
+const a = document.createElement('a');
+a.style.display='none';
+a.href = url;
+a.download = `call_${Date.now()}.wav`;
+document.body.appendChild(a);
+a.click();
+URL.revokeObjectURL(url);
+setStatus('Registrazione salvata');
+}
+recordBtn.addEventListener('click', ()=>{
+if(recording) stopRecording();
+else startRecording();
+});
+</script>
+</body>
+</html>
